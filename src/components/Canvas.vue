@@ -1,105 +1,65 @@
-// --- Canvas.vue ---
-// Simulação de perseguição 2D: Frajola (perseguidor) e Ligeirinho (alvo)
-// Componentes: detecção visual, spawn em bordas, captura, controles dinâmicos e métricas
-	/**
-	 * Reinicia o alvo (Ligeirinho) em uma borda aleatória com direção aleatória
-	 */
-	/**
-	 * Reinicia o perseguidor (Frajola) no centro do canvas
-	 */
-	/**
-	 * Loop principal de animação: atualiza lógica e renderiza frame
-	 */
-	/**
-	 * Atualiza lógica dos agentes, detecção, captura e métricas
-	 * @param {number} dt - delta time em ms
-	 */
-	/**
-	 * Detecção visual do alvo usando diferença de quadros (simulada)
-	 * Marca alvo como perdido se diferença abaixo do limiar por vários frames
-	 */
-	/**
-	 * Renderiza agentes e overlays no canvas
-	 */
-	/**
-	 * Handler: ao mudar velocidade do alvo
-	 * Garante que Frajola não ultrapasse 70% da velocidade do alvo
-	 */
-	/**
-	 * Handler: ao mudar velocidade do perseguidor
-	 * Garante que Frajola não ultrapasse 70% da velocidade do alvo
-	 */
-	/**
-	 * Handler: ao mudar sensibilidade de detecção
-	 * Reseta contagem de frames perdidos
-	 */
-	/**
-	 * Handler: ao mudar FPS
-	 * (Reservado para lógica futura)
-	 */
 <template>
-	<div class="canvas-container">
-		<canvas ref="canvas" width="800" height="600" class="main-canvas"></canvas>
-		<!-- Overlay de métricas -->
-		<div class="metrics-overlay">
-			<div>Tempo até captura: <b>{{ elapsedTimeDisplay }}</b></div>
-			<div>Capturas: <b>{{ captures }}</b></div>
-			<div>Tentativas: <b>{{ totalAttempts }}</b></div>
-			<div>Taxa de sucesso: <b>{{ successRate }}%</b></div>
-			<div v-if="!targetDetected" class="lost-indicator">Alvo perdido!</div>
+	<div class="simulation-container">
+		<!-- Canvas Area -->
+		<div class="canvas-area">
+			<canvas ref="canvas" width="800" height="600" class="main-canvas"></canvas>
 		</div>
-			computed: {
-				elapsedTimeDisplay() {
-					return (this.elapsedTime / 1000).toFixed(2) + 's';
-				},
-				totalAttempts() {
-					// Tentativas = capturas + perdas (quando alvo é perdido)
-					return this.captures + this.lostCount;
-				},
-				successRate() {
-					if (this.totalAttempts === 0) return 100;
-					return ((this.captures / this.totalAttempts) * 100).toFixed(1);
-				}
-			},
-			lostCount: 0, // Contador de perdas do alvo
-		<!-- Painel de controle -->
-		<div class="control-panel">
-			<label>
-				Ligeirinho Velocidade: <b>{{ targetSpeed }} px/frame</b>
-				<input type="range" min="8" max="15" step="1" v-model.number="targetSpeed" @input="onTargetSpeedChange" />
-			</label>
-			<label>
-				Frajola Velocidade: <b>{{ pursuerSpeed }} px/frame</b>
-				<input type="range" min="6" max="12" step="1" v-model.number="pursuerSpeed" @input="onPursuerSpeedChange" />
-			</label>
-			<label>
-				Sensibilidade Detecção: <b>{{ detectionThreshold }}</b>
-				<input type="range" min="10" max="100" step="1" v-model.number="detectionThreshold" @input="onDetectionChange" />
-			</label>
-			<label>
-				FPS: <b>{{ fps }}</b>
-				<input type="range" min="10" max="60" step="1" v-model.number="fps" @input="onFpsChange" />
-			</label>
+		
+		<!-- Side Panel -->
+		<div class="side-panel">
+			<!-- Métricas -->
+			<div class="metrics-panel">
+				<h3> Métricas</h3>
+				<div class="metric-item">
+					<span class="metric-label">Tempo até captura:</span>
+					<span class="metric-value">{{ elapsedTimeDisplay }}</span>
+				</div>
+				<div class="metric-item">
+					<span class="metric-label">Capturas:</span>
+					<span class="metric-value">{{ captures }}</span>
+				</div>
+				<div class="metric-item">
+					<span class="metric-label">Tentativas:</span>
+					<span class="metric-value">{{ totalAttempts }}</span>
+				</div>
+				<div class="metric-item">
+					<span class="metric-label">Taxa de sucesso:</span>
+					<span class="metric-value success-rate">{{ successRate }}%</span>
+				</div>
+				<div v-if="!targetDetected" class="lost-indicator">
+					Alvo perdido!
+				</div>
+			</div>
+
+			<!-- Controles -->
+			<div class="control-panel">
+				<h3> Controles</h3>
+				<div class="control-group">
+					<label class="control-label">
+						Ligeirinho Velocidade: <span class="control-value">{{ targetSpeed }} px/frame</span>
+						<input type="range" min="8" max="15" step="1" v-model.number="targetSpeed" @input="onTargetSpeedChange" class="control-slider" />
+					</label>
+				</div>
+				<div class="control-group">
+					<label class="control-label">
+						Frajola Velocidade: <span class="control-value">{{ pursuerSpeed }} px/frame</span>
+						<input type="range" min="6" max="12" step="1" v-model.number="pursuerSpeed" @input="onPursuerSpeedChange" class="control-slider" />
+					</label>
+				</div>
+				<div class="control-group">
+					<label class="control-label">
+						Facilidade de Detecção: <span class="control-value">{{ detectionThreshold }}</span>
+						<input type="range" min="10" max="100" step="1" v-model.number="detectionThreshold" @input="onDetectionChange" class="control-slider" />
+					</label>
+				</div>
+				<div class="control-group">
+					<label class="control-label">
+						FPS: <span class="control-value">{{ fps }}</span>
+						<input type="range" min="10" max="60" step="1" v-model.number="fps" @input="onFpsChange" class="control-slider" />
+					</label>
+				</div>
+			</div>
 		</div>
-			onTargetSpeedChange() {
-				// Garante que Frajola não ultrapasse 70% da velocidade do alvo
-				if (this.pursuerSpeed > this.targetSpeed * 0.7) {
-					this.pursuerSpeed = Math.floor(this.targetSpeed * 0.7);
-				}
-			},
-			onPursuerSpeedChange() {
-				// Garante que Frajola não ultrapasse 70% da velocidade do alvo
-				if (this.pursuerSpeed > this.targetSpeed * 0.7) {
-					this.pursuerSpeed = Math.floor(this.targetSpeed * 0.7);
-				}
-			},
-			onDetectionChange() {
-				// Reset de frames perdidos ao mudar sensibilidade
-				this.lostFrames = 0;
-			},
-			onFpsChange() {
-				// Nada extra, mas pode ser usado para lógica futura
-			},
 	</div>
 </template>
 
@@ -157,20 +117,27 @@ export default {
 			targetDetected: true,
 			// Métricas
 			captures: 0,
+			lostCount: 0, // Contador de perdas do alvo
 			elapsedTime: 0,
 			lastCaptureTime: 0,
-			successRate: 100,
 			// Controle de animação
 			animationId: null,
 			lastFrame: null,
-			prevFrameData: null,
 			lostFrames: 0,
-			lostLimit: 10,
+			lostLimit: 30, // Aumentado para tornar perda mais rara
 		};
 	},
 	computed: {
 		elapsedTimeDisplay() {
 			return (this.elapsedTime / 1000).toFixed(2) + 's';
+		},
+		totalAttempts() {
+			// Tentativas = capturas + perdas (quando alvo é perdido)
+			return this.captures + this.lostCount;
+		},
+		successRate() {
+			if (this.totalAttempts === 0) return 100;
+			return ((this.captures / this.totalAttempts) * 100).toFixed(1);
 		}
 	},
 	mounted() {
@@ -193,11 +160,13 @@ export default {
 			this.target.dx = pos.dx;
 			this.target.dy = pos.dy;
 		},
+
 		resetPursuer() {
 			// Frajola no centro
 			this.pursuer.x = this.width / 2 - this.pursuer.size / 2;
 			this.pursuer.y = this.height / 2 - this.pursuer.size / 2;
 		},
+
 		animate() {
 			this.animationId = requestAnimationFrame(this.animate);
 			const now = performance.now();
@@ -207,12 +176,22 @@ export default {
 			this.update(dt);
 			this.render();
 		},
+
+		/**
+		 * Atualiza lógica dos agentes, detecção, captura e métricas
+		 * @param {number} dt - delta time em ms
+		 */
 		update(dt) {
 			// Atualiza tempo
 			this.elapsedTime += dt;
+			
 			// Move Ligeirinho
 			this.target.x += this.target.dx * this.targetSpeed;
 			this.target.y += this.target.dy * this.targetSpeed;
+			
+			// Detecção visual: alvo é detectado se estiver dentro do canvas
+			this.detectTarget();
+			
 			// Gerenciamento de bordas: se saiu, respawna
 			if (
 				this.target.x < -this.target.size ||
@@ -228,8 +207,7 @@ export default {
 				this.lostFrames = 0;
 				return;
 			}
-			// Detecção visual (diferença de quadros simplificada)
-			this.detectTarget();
+			
 			// Move Frajola se alvo detectado
 			if (this.targetDetected) {
 				const px = this.pursuer.x + this.pursuer.size / 2;
@@ -240,6 +218,7 @@ export default {
 				this.pursuer.x += Math.cos(angle) * this.pursuerSpeed;
 				this.pursuer.y += Math.sin(angle) * this.pursuerSpeed;
 			}
+			
 			// Captura
 			const px = this.pursuer.x + this.pursuer.size / 2;
 			const py = this.pursuer.y + this.pursuer.size / 2;
@@ -256,37 +235,55 @@ export default {
 				this.lostFrames = 0;
 			}
 		},
+
 		detectTarget() {
-			// Simulação de detecção visual: diferença de quadros (simplificada)
-			// Captura frame atual
-			const frame = this.ctx.getImageData(0, 0, this.width, this.height);
-			if (this.prevFrameData) {
-				let diff = 0;
-				for (let i = 0; i < frame.data.length; i += 4) {
-					diff += Math.abs(frame.data[i] - this.prevFrameData[i]);
-				}
-				// Se diferença abaixo do limiar, considera alvo perdido
-				if (diff / (this.width * this.height) < this.detectionThreshold) {
-					this.lostFrames++;
-					if (this.lostFrames > this.lostLimit) {
-						this.targetDetected = false;
-					}
-				} else {
-					this.targetDetected = true;
-					this.lostFrames = 0;
-				}
+			// Verifica se o alvo está dentro das bordas do canvas
+			const isInBounds = (
+				this.target.x >= 0 && 
+				this.target.x + this.target.size <= this.width &&
+				this.target.y >= 0 && 
+				this.target.y + this.target.size <= this.height
+			);
+			
+			if (!isInBounds) {
+				this.targetDetected = false;
+				return;
 			}
-			this.prevFrameData = frame.data.slice();
+			
+			// Simula dificuldade de detecção baseada na velocidade e sensibilidade
+			const currentSpeed = Math.sqrt(
+				Math.pow(this.target.dx * this.targetSpeed, 2) + 
+				Math.pow(this.target.dy * this.targetSpeed, 2)
+			);
+			
+			// Chance de perder o alvo baseada na velocidade vs sensibilidade
+			const detectionDifficulty = currentSpeed / this.detectionThreshold;
+			const lossChance = Math.max(0, detectionDifficulty - 0.5);
+			
+			// Aplica chance de perda apenas ocasionalmente
+			if (Math.random() < lossChance * 0.02) { // 2% de chance por frame quando difícil
+				this.lostFrames++;
+				if (this.lostFrames > this.lostLimit) {
+					this.targetDetected = false;
+				}
+			} else {
+				this.targetDetected = true;
+				this.lostFrames = 0;
+			}
 		},
+
 		render() {
 			// Limpa canvas
 			this.ctx.clearRect(0, 0, this.width, this.height);
-			// Desenha Ligeirinho
+			
+			// Desenha Ligeirinho (alvo)
 			this.ctx.fillStyle = '#FFD700';
 			this.ctx.fillRect(this.target.x, this.target.y, this.target.size, this.target.size);
-			// Desenha Frajola
+			
+			// Desenha Frajola (perseguidor)
 			this.ctx.fillStyle = '#222';
 			this.ctx.fillRect(this.pursuer.x, this.pursuer.y, this.pursuer.size, this.pursuer.size);
+			
 			// Indicação visual de detecção
 			if (!this.targetDetected) {
 				this.ctx.strokeStyle = 'red';
@@ -294,49 +291,248 @@ export default {
 				this.ctx.strokeRect(this.target.x, this.target.y, this.target.size, this.target.size);
 			}
 		},
+
+		onTargetSpeedChange() {
+			// Ajusta automaticamente a velocidade do Frajola para 70% da velocidade do alvo
+			this.pursuerSpeed = Math.floor(this.targetSpeed * 0.7);
+		},
+
+		onPursuerSpeedChange() {
+			// Calcula a velocidade do alvo baseada na velocidade do perseguidor (Frajola = 70% do alvo)
+			this.targetSpeed = Math.ceil(this.pursuerSpeed / 0.7);
+			
+			// Garante que não ultrapasse os limites do slider do alvo
+			if (this.targetSpeed > 15) {
+				this.targetSpeed = 15;
+				this.pursuerSpeed = Math.floor(this.targetSpeed * 0.7);
+			}
+		},
+
+		onDetectionChange() {
+			// Reset de frames perdidos ao mudar sensibilidade
+			this.lostFrames = 0;
+			this.targetDetected = true;
+		},
+
+		onFpsChange() {
+			// Nada extra, mas pode ser usado para lógica futura
+		},
 	}
 }
 </script>
 
 <style scoped>
-.canvas-container {
-	position: relative;
-	width: 800px;
-	height: 600px;
+.simulation-container {
+	display: flex;
+	gap: 20px;
+	padding: 20px;
+	background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+	min-height: 100vh;
+	font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
+
+.canvas-area {
+	flex-shrink: 0;
+}
+
 .main-canvas {
-	border: 2px solid #333;
-	background: #e0e0e0;
-}
-.metrics-overlay {
-	position: absolute;
-	top: 10px;
-	left: 10px;
-	background: rgba(255,255,255,0.8);
-	padding: 8px 16px;
+	border: 3px solid #2c3e50;
+	background: #ecf0f1;
 	border-radius: 8px;
-	font-size: 16px;
-	z-index: 2;
+	box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-.lost-indicator {
-	color: red;
-	font-weight: bold;
-}
-.control-panel {
-	position: absolute;
-	bottom: 10px;
-	left: 10px;
-	background: rgba(255,255,255,0.9);
-	padding: 10px 18px;
-	border-radius: 8px;
-	z-index: 2;
+
+.side-panel {
+	width: 280px;
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-	font-size: 15px;
+	gap: 20px;
 }
-input[type="range"] {
-	width: 120px;
-	margin-left: 8px;
+
+.metrics-panel {
+	position: relative;
+	background: #ffffff;
+	border: 2px solid #3498db;
+	border-radius: 12px;
+	padding: 20px;
+	box-shadow: 0 4px 15px rgba(52, 152, 219, 0.1);
+	min-height: 180px; /* Altura fixa para evitar deslocamento */
+}
+
+.metrics-panel h3 {
+	margin: 0 0 15px 0;
+	color: #2c3e50;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.metric-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 0;
+	border-bottom: 1px solid #ecf0f1;
+}
+
+.metric-item:last-child {
+	border-bottom: none;
+}
+
+.metric-label {
+	color: #7f8c8d;
+	font-weight: 500;
+	font-size: 14px;
+}
+
+.metric-value {
+	color: #2c3e50;
+	font-weight: bold;
+	font-size: 16px;
+}
+
+.success-rate {
+	color: #27ae60;
+	font-size: 18px;
+}
+
+.lost-indicator {
+	position: absolute;
+	bottom: 15px;
+	left: 15px;
+	right: 15px;
+	background: #e74c3c;
+	color: white;
+	padding: 8px 12px;
+	border-radius: 6px;
+	font-weight: bold;
+	text-align: center;
+	animation: pulse 1s infinite;
+	box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+}
+
+@keyframes pulse {
+	0% { opacity: 1; }
+	50% { opacity: 0.7; }
+	100% { opacity: 1; }
+}
+
+.control-panel {
+	background: #ffffff;
+	border: 2px solid #e67e22;
+	border-radius: 12px;
+	padding: 20px;
+	box-shadow: 0 4px 15px rgba(230, 126, 34, 0.1);
+}
+
+.control-panel h3 {
+	margin: 0 0 15px 0;
+	color: #2c3e50;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.control-group {
+	margin-bottom: 15px;
+}
+
+.control-label {
+	display: block;
+	color: #2c3e50;
+	font-weight: 500;
+	font-size: 14px;
+	line-height: 1.4;
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	cursor: default;
+}
+
+.control-value {
+	color: #e67e22;
+	font-weight: bold;
+	float: right;
+}
+
+.control-slider {
+	width: 100%;
+	margin-top: 8px;
+	height: 8px;
+	border-radius: 4px;
+	background: #ecf0f1;
+	outline: none;
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	cursor: pointer;
+	border: none;
+}
+
+.control-slider::-webkit-slider-track {
+	width: 100%;
+	height: 8px;
+	cursor: pointer;
+	background: #ecf0f1;
+	border-radius: 4px;
+	border: none;
+}
+
+.control-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: #e67e22;
+	cursor: pointer;
+	border: 2px solid #ffffff;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+	margin-top: -6px;
+}
+
+.control-slider::-moz-range-track {
+	width: 100%;
+	height: 8px;
+	cursor: pointer;
+	background: #ecf0f1;
+	border-radius: 4px;
+	border: none;
+}
+
+.control-slider::-moz-range-thumb {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: #e67e22;
+	cursor: pointer;
+	border: 2px solid #ffffff;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+	-moz-appearance: none;
+}
+
+.control-slider:focus {
+	outline: 2px solid #3498db;
+	outline-offset: 2px;
+}
+
+.control-slider:hover::-webkit-slider-thumb {
+	background: #d35400;
+	transform: scale(1.1);
+	transition: all 0.2s ease;
+}
+
+.control-slider:hover::-moz-range-thumb {
+	background: #d35400;
+	transform: scale(1.1);
+	transition: all 0.2s ease;
+}
+
+/* Hover effects */
+.metrics-panel:hover {
+	transform: translateY(-2px);
+	transition: transform 0.2s ease;
+}
+
+.control-panel:hover {
+	transform: translateY(-2px);
+	transition: transform 0.2s ease;
 }
 </style>
