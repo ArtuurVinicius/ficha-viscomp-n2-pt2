@@ -16,6 +16,15 @@ Este projeto é uma simulação interativa desenvolvida em Vue, para a disciplin
 - **Indicação de alvo perdido:** Mensagem visual e destaque no canvas quando o alvo não é detectado.
 - **Lógica de detecção:** Simula a dificuldade de detecção do alvo baseada em velocidade e sensibilidade.
 
+## Estratégias de Perseguição
+
+- **Perseguição Direta**: o perseguidor move-se diretamente em direção ao alvo enquanto ele estiver detectado.
+- **Interceptação**: prediz a posição futura do alvo e tenta interceptá-lo; a predição considera as bordas do canvas e evita que o perseguidor saia da área visível.
+- **Patrulhamento**: percorre pontos de patrulha; ao detectar o alvo, persegue por um tempo limitado e depois retorna à patrulha.
+- **Busca Aleatória Inteligente**: combina movimento espiral/aleatório para explorar a área e persegue por curto período quando detecta o alvo.
+
+O projeto coleta métricas por estratégia (capturas, tentativas, tempo médio e taxa de sucesso) para permitir comparações diretas entre modelos.
+
 ## Tecnologias Utilizadas
 
 - [Vue](https://vuejs.org/) (Composition API)
