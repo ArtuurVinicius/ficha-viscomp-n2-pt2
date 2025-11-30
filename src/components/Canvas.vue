@@ -403,7 +403,7 @@ export default {
 	border-radius: 12px;
 	padding: 20px;
 	box-shadow: 0 4px 15px rgba(52, 152, 219, 0.1);
-	min-height: 180px; /* Altura fixa para evitar deslocamento */
+	min-height: 250px; 
 }
 
 .metrics-panel h3 {
@@ -444,7 +444,7 @@ export default {
 
 .lost-indicator {
 	position: absolute;
-	bottom: 15px;
+	bottom: 10px;
 	left: 15px;
 	right: 15px;
 	background: #e74c3c;
