@@ -153,12 +153,42 @@ export default {
 	},
 	methods: {
 		resetTarget() {
-			// Spawn Ligeirinho em borda aleatória
-			const pos = randomEdgePosition(this.width, this.height, this.target.size);
-			this.target.x = pos.x;
-			this.target.y = pos.y;
-			this.target.dx = pos.dx;
-			this.target.dy = pos.dy;
+			// Frajola sempre no centro
+			const pursuerCenterX = this.pursuer.x + this.pursuer.size / 2;
+			const pursuerCenterY = this.pursuer.y + this.pursuer.size / 2;
+
+			// Ligeirinho nasce em uma das bordas, mas nunca perto do Frajola
+			// Calcula as 4 bordas possíveis
+			const borders = [
+				{ x: 0, y: Math.random() * (this.height - this.target.size), dx: 1, dy: 0 }, // esquerda
+				{ x: this.width - this.target.size, y: Math.random() * (this.height - this.target.size), dx: -1, dy: 0 }, // direita
+				{ x: Math.random() * (this.width - this.target.size), y: 0, dx: 0, dy: 1 }, // topo
+				{ x: Math.random() * (this.width - this.target.size), y: this.height - this.target.size, dx: 0, dy: -1 } // base
+			];
+
+			// Filtra bordas que estão longe o suficiente do Frajola (mínimo 200px)
+			const minDist = 200;
+			const farBorders = borders.filter(b => {
+				const bx = b.x + this.target.size / 2;
+				const by = b.y + this.target.size / 2;
+				return distance(bx, by, pursuerCenterX, pursuerCenterY) > minDist;
+			});
+			// Se todas estão perto, usa todas (fallback)
+			const options = farBorders.length > 0 ? farBorders : borders;
+			// Escolhe uma borda aleatória
+			const spawn = options[Math.floor(Math.random() * options.length)];
+			this.target.x = spawn.x;
+			this.target.y = spawn.y;
+
+			// Calcula direção para cruzar o centro, mas com leve desvio para "desviar" do Frajola
+			const centerX = this.width / 2;
+			const centerY = this.height / 2;
+			let angleToCenter = Math.atan2(centerY - (this.target.y + this.target.size / 2), centerX - (this.target.x + this.target.size / 2));
+			// Adiciona desvio de até ±30 graus para simular "desvio" do Frajola
+			const deviation = (Math.random() - 0.5) * (Math.PI / 3); // ±30°
+			angleToCenter += deviation;
+			this.target.dx = Math.cos(angleToCenter);
+			this.target.dy = Math.sin(angleToCenter);
 		},
 
 		resetPursuer() {
@@ -182,32 +212,38 @@ export default {
 		 * @param {number} dt - delta time em ms
 		 */
 		update(dt) {
+			// Delay após captura/perda
+			if (this._waitingTransition) return;
+
 			// Atualiza tempo
 			this.elapsedTime += dt;
-			
+
 			// Move Ligeirinho
 			this.target.x += this.target.dx * this.targetSpeed;
 			this.target.y += this.target.dy * this.targetSpeed;
-			
+
 			// Detecção visual: alvo é detectado se estiver dentro do canvas
 			this.detectTarget();
-			
-			// Gerenciamento de bordas: se saiu, respawna
+
+			// Gerenciamento de bordas: se saiu, respawna com delay
 			if (
 				this.target.x < -this.target.size ||
 				this.target.x > this.width ||
 				this.target.y < -this.target.size ||
 				this.target.y > this.height
 			) {
-				// Se o alvo saiu do canvas, conta como perda
 				this.lostCount++;
-				this.resetTarget();
-				this.elapsedTime = 0;
-				this.targetDetected = true;
-				this.lostFrames = 0;
+				this._waitingTransition = true;
+				setTimeout(() => {
+					this.resetTarget();
+					this.elapsedTime = 0;
+					this.targetDetected = true;
+					this.lostFrames = 0;
+					this._waitingTransition = false;
+				}, 1000);
 				return;
 			}
-			
+
 			// Move Frajola se alvo detectado
 			if (this.targetDetected) {
 				const px = this.pursuer.x + this.pursuer.size / 2;
@@ -218,21 +254,24 @@ export default {
 				this.pursuer.x += Math.cos(angle) * this.pursuerSpeed;
 				this.pursuer.y += Math.sin(angle) * this.pursuerSpeed;
 			}
-			
+
 			// Captura
 			const px = this.pursuer.x + this.pursuer.size / 2;
 			const py = this.pursuer.y + this.pursuer.size / 2;
 			const tx = this.target.x + this.target.size / 2;
 			const ty = this.target.y + this.target.size / 2;
 			if (distance(px, py, tx, ty) < 20) {
-				// Captura bem-sucedida
 				this.captures++;
 				this.lastCaptureTime = this.elapsedTime;
-				this.resetTarget();
-				this.resetPursuer();
-				this.elapsedTime = 0;
-				this.targetDetected = true;
-				this.lostFrames = 0;
+				this._waitingTransition = true;
+				setTimeout(() => {
+					this.resetTarget();
+					this.resetPursuer();
+					this.elapsedTime = 0;
+					this.targetDetected = true;
+					this.lostFrames = 0;
+					this._waitingTransition = false;
+				}, 1000);
 			}
 		},
 
