@@ -3,6 +3,10 @@
 		<!-- Canvas Area -->
 		<div class="canvas-area">
 			<canvas ref="canvas" width="800" height="600" class="main-canvas"></canvas>
+			<!-- Indicador movido para ficar logo abaixo do canvas -->
+			<div v-if="!targetDetected" class="lost-indicator">
+				Alvo perdido!
+			</div>
 		</div>
 		
 		<!-- Side Panel -->
@@ -26,14 +30,34 @@
 					<span class="metric-label">Taxa de sucesso:</span>
 					<span class="metric-value success-rate">{{ successRate }}%</span>
 				</div>
-				<div v-if="!targetDetected" class="lost-indicator">
-					Alvo perdido!
+				<div class="strategy-stats">
+					<h4>{{ pursuitStrategy === 'direct' ? 'Perseguição Direta' : 
+						pursuitStrategy === 'intercept' ? 'Interceptação' : 
+						pursuitStrategy === 'patrol' ? 'Patrulhamento' : 'Busca Aleatória' }}</h4>
+					<div class="mini-metric">
+						<span>Capturas: {{ currentStrategyStats.captures }}</span>
+						<span>Taxa: {{ currentStrategyStats.successRate }}%</span>
+					</div>
+					<div class="mini-metric">
+						<span>Tentativas: {{ currentStrategyStats.attempts }}</span>
+						<span>Tempo médio: {{ currentStrategyStats.avgTime }}s</span>
+					</div>
 				</div>
 			</div>
-
 			<!-- Controles -->
 			<div class="control-panel">
 				<h3> Controles</h3>
+				<div class="control-group">
+					<label class="control-label">
+						Estratégia de Perseguição:
+						<select v-model="pursuitStrategy" @change="onStrategyChange" class="control-select">
+							<option value="direct">Perseguição Direta</option>
+							<option value="intercept">Interceptação</option>
+							<option value="patrol">Patrulhamento</option>
+							<option value="random">Busca Aleatória</option>
+						</select>
+					</label>
+				</div>
 				<div class="control-group">
 					<label class="control-label">
 						Ligeirinho Velocidade: <span class="control-value">{{ targetSpeed }} px/frame</span>
@@ -113,6 +137,21 @@ export default {
 			pursuerSpeed: 7,
 			detectionThreshold: 30,
 			fps: 30,
+			pursuitStrategy: 'direct', // Estratégia atual
+			// Variáveis auxiliares para diferentes estratégias
+			patrolPoints: [],
+			currentPatrolIndex: 0,
+			lastKnownPosition: { x: 0, y: 0 },
+			randomDirection: { dx: 1, dy: 0 },
+			chaseStartTime: null,
+			searchChaseStart: null,
+			spiralAngle: 0,
+			chaseStartTime: null,
+			searchChaseStart: null,
+			spiralAngle: 0,
+			chaseStartTime: null,
+			searchChaseStart: null,
+			spiralAngle: 0,
 			// Estado de detecção
 			targetDetected: true,
 			// Métricas
@@ -120,6 +159,13 @@ export default {
 			lostCount: 0, // Contador de perdas do alvo
 			elapsedTime: 0,
 			lastCaptureTime: 0,
+			// Métricas por estratégia para comparação
+			strategyMetrics: {
+				direct: { captures: 0, attempts: 0, totalTime: 0 },
+				intercept: { captures: 0, attempts: 0, totalTime: 0 },
+				patrol: { captures: 0, attempts: 0, totalTime: 0 },
+				random: { captures: 0, attempts: 0, totalTime: 0 }
+			},
 			// Controle de animação
 			animationId: null,
 			lastFrame: null,
@@ -138,6 +184,17 @@ export default {
 		successRate() {
 			if (this.totalAttempts === 0) return 100;
 			return ((this.captures / this.totalAttempts) * 100).toFixed(1);
+		},
+		currentStrategyStats() {
+			const stats = this.strategyMetrics[this.pursuitStrategy];
+			const successRate = stats.attempts === 0 ? 0 : ((stats.captures / stats.attempts) * 100).toFixed(1);
+			const avgTime = stats.captures === 0 ? 0 : (stats.totalTime / stats.captures / 1000).toFixed(2);
+			return {
+				captures: stats.captures,
+				attempts: stats.attempts,
+				successRate,
+				avgTime
+			};
 		}
 	},
 	mounted() {
@@ -145,6 +202,7 @@ export default {
 		this.ctx = this.canvas.getContext('2d');
 		this.resetTarget();
 		this.resetPursuer();
+		this.initializeStrategy();
 		this.lastFrame = performance.now();
 		this.animate();
 	},
@@ -231,29 +289,21 @@ export default {
 				this.target.x > this.width ||
 				this.target.y < -this.target.size ||
 				this.target.y > this.height
-			) {
-				this.lostCount++;
-				this._waitingTransition = true;
-				setTimeout(() => {
-					this.resetTarget();
-					this.elapsedTime = 0;
-					this.targetDetected = true;
-					this.lostFrames = 0;
-					this._waitingTransition = false;
-				}, 1000);
-				return;
-			}
-
-			// Move Frajola se alvo detectado
-			if (this.targetDetected) {
-				const px = this.pursuer.x + this.pursuer.size / 2;
-				const py = this.pursuer.y + this.pursuer.size / 2;
-				const tx = this.target.x + this.target.size / 2;
-				const ty = this.target.y + this.target.size / 2;
-				const angle = Math.atan2(ty - py, tx - px);
-				this.pursuer.x += Math.cos(angle) * this.pursuerSpeed;
-				this.pursuer.y += Math.sin(angle) * this.pursuerSpeed;
-			}
+				) {
+					this.lostCount++;
+					// Atualiza tentativas da estratégia atual (perda)
+					this.strategyMetrics[this.pursuitStrategy].attempts++;
+					this._waitingTransition = true;
+					setTimeout(() => {
+						this.resetTarget();
+						this.elapsedTime = 0;
+						this.targetDetected = true;
+						this.lostFrames = 0;
+						this._waitingTransition = false;
+					}, 1000);
+					return;
+				}			// Move Frajola baseado na estratégia escolhida
+			this.movePursuer();
 
 			// Captura
 			const px = this.pursuer.x + this.pursuer.size / 2;
@@ -263,6 +313,10 @@ export default {
 			if (distance(px, py, tx, ty) < 20) {
 				this.captures++;
 				this.lastCaptureTime = this.elapsedTime;
+				// Atualiza métricas da estratégia atual
+				this.strategyMetrics[this.pursuitStrategy].captures++;
+				this.strategyMetrics[this.pursuitStrategy].attempts++;
+				this.strategyMetrics[this.pursuitStrategy].totalTime += this.elapsedTime;
 				this._waitingTransition = true;
 				setTimeout(() => {
 					this.resetTarget();
@@ -364,6 +418,192 @@ export default {
 		onFpsChange() {
 			// Nada extra, mas pode ser usado para lógica futura
 		},
+
+		onStrategyChange() {
+			// Reinicializa variáveis específicas da estratégia
+			this.initializeStrategy();
+		},
+
+		initializeStrategy() {
+			switch (this.pursuitStrategy) {
+				case 'patrol':
+					// Define pontos de patrulhamento
+					this.patrolPoints = [
+						{ x: 100, y: 100 },
+						{ x: 700, y: 100 },
+						{ x: 700, y: 500 },
+						{ x: 100, y: 500 }
+					];
+					this.currentPatrolIndex = 0;
+					break;
+				case 'random':
+					// Direção aleatória inicial
+					const angle = Math.random() * Math.PI * 2;
+					this.randomDirection = { dx: Math.cos(angle), dy: Math.sin(angle) };
+					break;
+			}
+		},
+
+		movePursuer() {
+			const px = this.pursuer.x + this.pursuer.size / 2;
+			const py = this.pursuer.y + this.pursuer.size / 2;
+			let moveX = 0, moveY = 0;
+
+			switch (this.pursuitStrategy) {
+				case 'direct':
+					moveX = this.directPursuit(px, py).dx;
+					moveY = this.directPursuit(px, py).dy;
+					break;
+				case 'intercept':
+					moveX = this.interceptPursuit(px, py).dx;
+					moveY = this.interceptPursuit(px, py).dy;
+					break;
+				case 'patrol':
+					moveX = this.patrolPursuit(px, py).dx;
+					moveY = this.patrolPursuit(px, py).dy;
+					break;
+				case 'random':
+					moveX = this.randomPursuit(px, py).dx;
+					moveY = this.randomPursuit(px, py).dy;
+					break;
+			}
+
+			this.pursuer.x += moveX * this.pursuerSpeed;
+			this.pursuer.y += moveY * this.pursuerSpeed;
+		},
+
+		directPursuit(px, py) {
+			// Perseguição direta: move em direção ao alvo se detectado
+			if (!this.targetDetected) return { dx: 0, dy: 0 };
+			
+			const tx = this.target.x + this.target.size / 2;
+			const ty = this.target.y + this.target.size / 2;
+			const angle = Math.atan2(ty - py, tx - px);
+			return { dx: Math.cos(angle), dy: Math.sin(angle) };
+		},
+
+	interceptPursuit(px, py) {
+		// Interceptação: prediz onde o alvo estará considerando bordas
+		if (!this.targetDetected) {
+			// Se perdeu o alvo, vai para última posição conhecida
+			const angle = Math.atan2(this.lastKnownPosition.y - py, this.lastKnownPosition.x - px);
+			return this.constrainMovement(px, py, Math.cos(angle), Math.sin(angle));
+		}
+
+		// Atualiza última posição conhecida
+		this.lastKnownPosition.x = this.target.x + this.target.size / 2;
+		this.lastKnownPosition.y = this.target.y + this.target.size / 2;
+
+		// Prediz posição futura do alvo com múltiplos cenários
+		const predictionTime = 20;
+		let futureX = this.target.x + this.target.dx * this.targetSpeed * predictionTime;
+		let futureY = this.target.y + this.target.dy * this.targetSpeed * predictionTime;
+
+		// Ajusta predição se alvo sair das bordas
+		futureX = Math.max(0, Math.min(futureX, this.width - this.target.size));
+		futureY = Math.max(0, Math.min(futureY, this.height - this.target.size));
+
+		const angle = Math.atan2(futureY - py, futureX - px);
+		return this.constrainMovement(px, py, Math.cos(angle), Math.sin(angle));
+	},
+
+	patrolPursuit(px, py) {
+		// Patrulhamento: movimento sistemático em área, busca ativa
+		const currentPoint = this.patrolPoints[this.currentPatrolIndex];
+		const distToPoint = distance(px, py, currentPoint.x, currentPoint.y);
+
+		// Se detectou alvo, persegue por tempo limitado antes de voltar à patrulha
+		if (this.targetDetected) {
+			if (!this.chaseStartTime) {
+				this.chaseStartTime = Date.now();
+			}
+			// Persegue por apenas 3 segundos
+			if (Date.now() - this.chaseStartTime < 3000) {
+				return this.directPursuit(px, py);
+			} else {
+				// Volta para patrulha após tempo limite
+				this.chaseStartTime = null;
+			}
+		} else {
+			this.chaseStartTime = null;
+		}
+
+		// Movimento de patrulha mais lento e metódico
+		if (distToPoint < 40) {
+			this.currentPatrolIndex = (this.currentPatrolIndex + 1) % this.patrolPoints.length;
+		}
+
+		const angle = Math.atan2(currentPoint.y - py, currentPoint.x - px);
+		// Movimento 30% mais lento na patrulha
+		return { dx: Math.cos(angle) * 0.7, dy: Math.sin(angle) * 0.7 };
+	},
+
+	randomPursuit(px, py) {
+		// Busca aleatória inteligente: explora áreas não visitadas
+		if (this.targetDetected) {
+			// Persegue apenas por curto período, depois volta à busca
+			if (!this.searchChaseStart) {
+				this.searchChaseStart = Date.now();
+			}
+			if (Date.now() - this.searchChaseStart < 2000) {
+				return this.directPursuit(px, py);
+			} else {
+				this.searchChaseStart = null;
+				// Continua busca em direção diferente
+				this.exploreNewArea(px, py);
+			}
+		} else {
+			this.searchChaseStart = null;
+		}
+
+		// Busca sistemática com movimento em espiral
+		if (!this.spiralAngle) this.spiralAngle = 0;
+		this.spiralAngle += 0.1;
+		
+		// Movimento em espiral com variação aleatória
+		const dx = Math.cos(this.spiralAngle) + (Math.random() - 0.5) * 0.3;
+		const dy = Math.sin(this.spiralAngle) + (Math.random() - 0.5) * 0.3;
+		
+		return this.constrainMovement(px, py, dx, dy);
+	},
+
+	constrainMovement(px, py, dx, dy) {
+		// Evita que o perseguidor saia das bordas
+		const margin = 25; // margem das bordas
+		const futureX = px + dx * this.pursuerSpeed;
+		const futureY = py + dy * this.pursuerSpeed;
+
+		// Inverte direção se vai sair das bordas
+		if (futureX < margin || futureX > this.width - margin) {
+			dx *= -0.8;
+		}
+		if (futureY < margin || futureY > this.height - margin) {
+			dy *= -0.8;
+		}
+
+		return { dx, dy };
+	},
+
+	exploreNewArea(px, py) {
+		// Direciona para área menos explorada
+		const centerX = this.width / 2;
+		const centerY = this.height / 2;
+		
+		// Se está muito perto do centro, vai para uma borda aleatória
+		if (distance(px, py, centerX, centerY) < 100) {
+			const edges = [
+				{ x: 100, y: 100 }, { x: this.width - 100, y: 100 },
+				{ x: this.width - 100, y: this.height - 100 }, { x: 100, y: this.height - 100 }
+			];
+			const target = edges[Math.floor(Math.random() * edges.length)];
+			const angle = Math.atan2(target.y - py, target.x - px);
+			this.randomDirection = { dx: Math.cos(angle), dy: Math.sin(angle) };
+		} else {
+			// Vai para o centro se está nas bordas
+			const angle = Math.atan2(centerY - py, centerX - px);
+			this.randomDirection = { dx: Math.cos(angle), dy: Math.sin(angle) };
+		}
+	}
 	}
 }
 </script>
@@ -380,6 +620,9 @@ export default {
 
 .canvas-area {
 	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
 }
 
 .main-canvas {
@@ -442,19 +685,48 @@ export default {
 	font-size: 18px;
 }
 
+.strategy-stats {
+	margin-top: 15px;
+	padding-top: 15px;
+	border-top: 2px solid #ecf0f1;
+}
+
+.strategy-stats h4 {
+	margin: 0 0 10px 0;
+	color: #3498db;
+	font-size: 14px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.mini-metric {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 5px;
+	font-size: 12px;
+	color: #7f8c8d;
+}
+
+.mini-metric span:last-child {
+	font-weight: bold;
+	color: #2c3e50;
+}
+
 .lost-indicator {
-	position: absolute;
-	bottom: 10px;
-	left: 15px;
-	right: 15px;
+	position: static;
+	display: inline-block;
+	margin-top: 12px;
 	background: #e74c3c;
 	color: white;
-	padding: 8px 12px;
-	border-radius: 6px;
+	padding: 8px 14px;
+	border-radius: 8px;
 	font-weight: bold;
 	text-align: center;
 	animation: pulse 1s infinite;
-	box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+	box-shadow: 0 4px 10px rgba(231, 76, 60, 0.25);
+	font-size: 14px;
+	border: 2px solid #c0392b;
 }
 
 @keyframes pulse {
@@ -570,6 +842,30 @@ export default {
 	background: #d35400;
 	transform: scale(1.1);
 	transition: all 0.2s ease;
+}
+
+.control-select {
+	width: 100%;
+	margin-top: 8px;
+	padding: 8px 12px;
+	border: 2px solid #ecf0f1;
+	border-radius: 6px;
+	background: #ffffff;
+	color: #2c3e50;
+	font-size: 14px;
+	font-weight: 500;
+	cursor: pointer;
+	outline: none;
+	transition: border-color 0.3s ease;
+}
+
+.control-select:focus {
+	border-color: #e67e22;
+	box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.1);
+}
+
+.control-select:hover {
+	border-color: #d35400;
 }
 
 /* Hover effects */
