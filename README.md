@@ -1,6 +1,60 @@
-# Vue 3 + Vite
+# Ficha 2 - Parte 2: Simulação de Visão Computacional
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+## Alunos:
+- Adrian Modesto Lauzid
+- Artur Vinícius Lima
+- Gustavo dos Santos Silva
+- Lucas Pereira de Souza
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
-"# ficha-viscomp-n2-pt2" 
+Este projeto é uma simulação interativa desenvolvida em Vue, para a disciplina de Visão Computacional. O objetivo é simular a perseguição de um alvo (Ligeirinho) por um perseguidor (Frajola), permitindo o ajuste de parâmetros e a visualização de métricas em tempo real.
+
+## Funcionalidades
+
+- **Canvas interativo:** Exibe a movimentação do alvo e do perseguidor.
+- **Métricas em tempo real:** Tempo até captura, número de capturas, tentativas e taxa de sucesso.
+- **Controles dinâmicos:** Ajuste de velocidade do alvo (Ligeirinho), perseguidor (Frajola), sensibilidade de detecção e FPS.
+- **Indicação de alvo perdido:** Mensagem visual e destaque no canvas quando o alvo não é detectado.
+- **Lógica de detecção:** Simula a dificuldade de detecção do alvo baseada em velocidade e sensibilidade.
+
+## Tecnologias Utilizadas
+
+- [Vue](https://vuejs.org/) (Composition API)
+- [Vite](https://vitejs.dev/) para build e desenvolvimento
+
+## Estrutura do Projeto
+
+- `src/App.vue`: Componente principal que renderiza o Canvas.
+- `src/components/Canvas.vue`: Toda a lógica da simulação, controles e métricas.
+- `public/`: Arquivos estáticos.
+- `package.json`: Dependências e scripts.
+
+## Como Executar
+
+1. Instale as dependências:
+	```bash
+	npm install
+	```
+2. Rode o projeto em modo desenvolvimento:
+	```bash
+	npm run dev
+	```
+3. Acesse no navegador o endereço indicado (geralmente http://localhost:5173).
+
+## Controles Disponíveis
+
+- **Ligeirinho Velocidade:** Ajusta a velocidade do alvo.
+- **Frajola Velocidade:** Ajusta a velocidade do perseguidor (limitado proporcionalmente ao alvo).
+- **Sensibilidade de Detecção:** Quanto maior, mais fácil detectar o alvo.
+- **FPS:** Controla a taxa de atualização da simulação.
+
+## Métricas
+
+- **Tempo até captura:** Tempo decorrido até o perseguidor capturar o alvo.
+- **Capturas:** Quantidade de vezes que o perseguidor capturou o alvo.
+- **Tentativas:** Soma de capturas e perdas do alvo.
+- **Taxa de sucesso:** Percentual de capturas sobre tentativas.
+
+## Observações
+
+- O projeto é totalmente front-end e não requer backend.
+- O código está comentado para facilitar o entendimento da lógica de simulação e detecção.
