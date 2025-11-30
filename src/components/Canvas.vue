@@ -48,7 +48,7 @@
 				</div>
 				<div class="control-group">
 					<label class="control-label">
-						Facilidade de Detecção: <span class="control-value">{{ detectionThreshold }}</span>
+						Sensibilidade de Detecção: <span class="control-value">{{ detectionThreshold }}</span>
 						<input type="range" min="10" max="100" step="1" v-model.number="detectionThreshold" @input="onDetectionChange" class="control-slider" />
 					</label>
 				</div>
@@ -283,24 +283,32 @@ export default {
 				this.target.y >= 0 && 
 				this.target.y + this.target.size <= this.height
 			);
-			
 			if (!isInBounds) {
 				this.targetDetected = false;
 				return;
 			}
-			
 			// Simula dificuldade de detecção baseada na velocidade e sensibilidade
 			const currentSpeed = Math.sqrt(
 				Math.pow(this.target.dx * this.targetSpeed, 2) + 
 				Math.pow(this.target.dy * this.targetSpeed, 2)
 			);
-			
-			// Chance de perder o alvo baseada na velocidade vs sensibilidade
-			const detectionDifficulty = currentSpeed / this.detectionThreshold;
-			const lossChance = Math.max(0, detectionDifficulty - 0.5);
-			
-			// Aplica chance de perda apenas ocasionalmente
-			if (Math.random() < lossChance * 0.02) { // 2% de chance por frame quando difícil
+			// Novo cálculo: quanto menor o threshold, maior a chance de perder
+			// Quanto maior o threshold, menor a chance de perder
+			// Usar função exponencial para efeito perceptível
+			// detectionThreshold: 10 (difícil), 100 (fácil)
+			// lossChance varia de ~0.5 (difícil) até ~0.001 (fácil)
+			const minThreshold = 10;
+			const maxThreshold = 100;
+			// Normaliza threshold para [0,1] (0 = difícil, 1 = fácil)
+			const norm = (this.detectionThreshold - minThreshold) / (maxThreshold - minThreshold);
+			// Inverte: 0 = fácil perder, 1 = difícil perder
+			const difficulty = 1 - norm;
+			// Base loss chance: depende da velocidade e da dificuldade
+			// Para valores baixos de threshold, lossChance é alta (~5% por frame)
+			// Para valores altos, lossChance é quase zero
+			let lossChance = Math.min(1, (currentSpeed / 15) * (0.05 + 0.25 * difficulty * difficulty));
+			// Para threshold máximo, lossChance ~0.005; para mínimo, ~0.05
+			if (Math.random() < lossChance) {
 				this.lostFrames++;
 				if (this.lostFrames > this.lostLimit) {
 					this.targetDetected = false;
